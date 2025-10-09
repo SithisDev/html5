@@ -19,6 +19,11 @@
                     setTimeout(() => {
                         fakeVideo.ended = true;
                         fakeVideo.dispatchEvent(new Event("ended")); // Эмулируем завершение рекламы
+                        console.log("Эмулируем завершение рекламы 100мс");
+                    }, 100);
+                    setTimeout(() => {
+                        fakeVideo.ended = true;
+                        fakeVideo.dispatchEvent(new Event("ended")); // Эмулируем завершение рекламы
                         console.log("Эмулируем завершение рекламы 500мс");
                     }, 500);
                     setTimeout(() => {
@@ -26,6 +31,11 @@
                         fakeVideo.dispatchEvent(new Event("ended")); // Эмулируем завершение рекламы
                         console.log("Эмулируем завершение рекламы 1000мс");
                     }, 1000);
+                    setTimeout(() => {
+                        fakeVideo.ended = true;
+                        fakeVideo.dispatchEvent(new Event("ended")); // Эмулируем завершение рекламы
+                        console.log("Эмулируем завершение рекламы 2000мс");
+                    }, 2000);
                 };
 
                 return fakeVideo;
