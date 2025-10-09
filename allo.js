@@ -24,7 +24,7 @@
 
                 return fakeVideo;
             } else {
-                console.log("<video> не найденно! повторная попытка через 500мс, максимум 2 раза");
+                console.log("<video> не найденно! повторная попытка через 500мс, максимум 3 раза");
                     setTimeout(() => {
                         
                                     if (args[0] === "video") {
