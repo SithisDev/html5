@@ -34,6 +34,17 @@
         }
     });
 
+    // Функция для замены текста в рекламных блоках
+    function replaceAdText() {
+        const adTextElements = document.querySelectorAll('.ad-preroll__text');
+        adTextElements.forEach(element => {
+            if (element.textContent.includes('Реклама')) {
+                element.textContent = "Нет рекламы ;)";
+                console.log("Текст рекламы заменен на: Нет рекламы ;)");
+            }
+        });
+    }
+
     // Очищаем таймеры рекламы
     function clearAdTimers() {
         console.log("Очищаем рекламные таймеры...");
@@ -42,8 +53,20 @@
             clearTimeout(i);
             clearInterval(i);
         }
+        
+        // Также заменяем текст рекламы
+        replaceAdText();
     }
 
     // Убираем рекламу после загрузки страницы
-    document.addEventListener("DOMContentLoaded", clearAdTimers);
+    document.addEventListener("DOMContentLoaded", function() {
+        clearAdTimers();
+        replaceAdText();
+    });
+
+    // Также запускаем замену текста при полной загрузке страницы
+    window.addEventListener('load', replaceAdText);
+
+    // Периодическая проверка на случай динамической загрузки
+    setInterval(replaceAdText, 1000);
 })();
