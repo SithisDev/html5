@@ -19,32 +19,16 @@
                     setTimeout(() => {
                         fakeVideo.ended = true;
                         fakeVideo.dispatchEvent(new Event("ended")); // Эмулируем завершение рекламы
+                        console.log("Эмулируем завершение рекламы 500мс");
                     }, 500);
-                };
-
-                return fakeVideo;
-            } else {
-                console.log("<video> не найденно! повторная попытка через 500мс, максимум 2 раза");
-                    setTimeout(() => {
-                        
-                                    if (args[0] === "video") {
-                console.log("Перехватываем создание <video> для рекламы!");
-
-                let fakeVideo = target.apply(thisArg, args);
-
-                // Запрещаем рекламе воспроизводиться
-                fakeVideo.play = function () {
-                    console.log("Рекламное видео заблокировано!");
                     setTimeout(() => {
                         fakeVideo.ended = true;
                         fakeVideo.dispatchEvent(new Event("ended")); // Эмулируем завершение рекламы
-                    }, 500);
+                        console.log("Эмулируем завершение рекламы 1000мс");
+                    }, 1000);
                 };
 
                 return fakeVideo;
-            } return target.apply(thisArg, args);
-
-                    }, 500);
             }
             return target.apply(thisArg, args);
         }
