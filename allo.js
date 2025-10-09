@@ -5,6 +5,9 @@
     window.Account = window.Account || {};
     window.Account.hasPremium = () => true;
 
+    // Переменная для отслеживания состояния блокировки
+    let adBlockCompleted = false;
+
     // Ломаем создание <video> для рекламы
     document.createElement = new Proxy(document.createElement, {
         apply(target, thisArg, args) {
@@ -15,63 +18,129 @@
 
                 // Улучшенная система блокировки с проверками
                 const blockAdVideo = function () {
-                    console.log("Рекламное видео заблокировано!");
-                    
-                    // Множественные проверки готовности видео
-                    const tryCompleteVideo = (attempt = 0) => {
-                        if (attempt > 10) { // Максимум 10 попыток
-                            console.log("Не удалось завершить видео после 10 попыток");
-                            return;
-                        }
+                    if (adBlockCompleted) {
+                        console.log("Реклама уже завершена, пропускаем");
+                        return Promise.resolve();
+                    }
 
-                        console.log(`Попытка завершения видео #${attempt + 1}`);
+                    console.log("Рекламное видео заблокировано!");
+                    adBlockCompleted = true;
+                    
+                    // Немедленно помечаем видео как завершенное
+                    fakeVideo.ended = true;
+                    fakeVideo.currentTime = 100;
+                    fakeVideo.duration = 100;
+                    
+                    // Эмулируем все необходимые события
+                    const completeAd = () => {
+                        console.log("Завершаем рекламу...");
                         
-                        // Эмулируем завершение видео
-                        fakeVideo.ended = true;
-                        fakeVideo.currentTime = fakeVideo.duration || 100;
-                        
-                        // Запускаем все возможные события завершения
-                        const events = ['ended', 'complete', 'load', 'canplaythrough'];
+                        const events = ['ended', 'complete', 'load', 'canplaythrough', 'loadeddata'];
                         events.forEach(eventName => {
                             try {
                                 fakeVideo.dispatchEvent(new Event(eventName));
                             } catch (e) {}
                         });
 
-                        // Проверяем, нужно ли еще раз попробовать
-                        setTimeout(() => {
-                            if (!fakeVideo.ended || fakeVideo.currentTime < (fakeVideo.duration || 1)) {
-                                tryCompleteVideo(attempt + 1);
-                            } else {
-                                console.log("Видео успешно завершено!");
-                            }
-                        }, 300 + (attempt * 100)); // Увеличиваем задержку с каждой попыткой
+                        // Также запускаем события на самом видео элементе
+                        if (fakeVideo.dispatchEvent) {
+                            events.forEach(eventName => {
+                                try {
+                                    const event = new Event(eventName, { bubbles: true });
+                                    fakeVideo.dispatchEvent(event);
+                                } catch (e) {}
+                            });
+                        }
+
+                        // Вызываем callback если есть
+                        if (fakeVideo.onended) {
+                            try {
+                                fakeVideo.onended();
+                            } catch (e) {}
+                        }
+
+                        console.log("Реклама успешно завершена!");
                     };
 
-                    // Запускаем процесс завершения
-                    tryCompleteVideo();
+                    // Запускаем немедленно
+                    completeAd();
                     
-                    return Promise.resolve(); // Возвращаем успешный Promise для async/await
+                    // Дополнительная проверка через короткое время
+                    setTimeout(completeAd, 50);
+                    
+                    return Promise.resolve();
                 };
 
                 // Подменяем методы воспроизведения
                 fakeVideo.play = blockAdVideo;
                 fakeVideo.load = blockAdVideo;
-                
+
+                // Добавляем свойства для обмана проверок
+                Object.defineProperty(fakeVideo, 'readyState', {
+                    get: function() { return 4; } // HAVE_ENOUGH_DATA
+                });
+
+                Object.defineProperty(fakeVideo, 'videoWidth', {
+                    get: function() { return 1920; }
+                });
+
+                Object.defineProperty(fakeVideo, 'videoHeight', {
+                    get: function() { return 1080; }
+                });
+
+                Object.defineProperty(fakeVideo, 'duration', {
+                    get: function() { return 100; },
+                    set: function(value) {} // игнорируем установку длительности
+                });
+
+                Object.defineProperty(fakeVideo, 'currentTime', {
+                    get: function() { return 100; },
+                    set: function(value) {} // игнорируем установку времени
+                });
+
+                Object.defineProperty(fakeVideo, 'ended', {
+                    get: function() { return true; },
+                    set: function(value) {}
+                });
+
                 // Блокируем установку источников
                 const originalSrcSetter = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src')?.set;
                 if (originalSrcSetter) {
                     Object.defineProperty(fakeVideo, 'src', {
                         set: function(value) {
                             console.log("Блокируем установку источника видео:", value);
-                            // Позволяем установить src, но все равно блокируем воспроизведение
+                            // Разрешаем установить src, но блокируем воспроизведение
                             originalSrcSetter.call(this, value);
+                            // Немедленно завершаем рекламу
+                            setTimeout(blockAdVideo, 10);
                         },
                         get: function() {
                             return originalSrcSetter.get?.call(this);
-                        }
+                        },
+                        configurable: true
                     });
                 }
+
+                // Также перехватываем addEventListener
+                const originalAddEventListener = fakeVideo.addEventListener;
+                fakeVideo.addEventListener = function(type, listener, options) {
+                    console.log(`Перехватываем добавление слушателя: ${type}`);
+                    
+                    // Для событий завершения сразу вызываем listener
+                    if (type === 'ended' || type === 'complete' || type === 'load') {
+                        console.log(`Немедленно вызываем слушатель для события: ${type}`);
+                        setTimeout(() => {
+                            try {
+                                if (typeof listener === 'function') {
+                                    listener.call(this, new Event(type));
+                                }
+                            } catch (e) {}
+                        }, 20);
+                        return;
+                    }
+                    
+                    return originalAddEventListener.call(this, type, listener, options);
+                };
 
                 return fakeVideo;
             }
@@ -79,108 +148,73 @@
         }
     });
 
-    // Улучшенная очистка таймеров - только рекламных
-    function clearAdTimers() {
-        console.log("Поиск и очистка рекламных таймеров...");
-        
-        // Сохраняем оригинальные функции
-        const originalSetTimeout = window.setTimeout;
-        const originalSetInterval = window.setInterval;
-        
-        let blockedTimers = 0;
-        
-        // Перехватываем создание новых таймеров
-        window.setTimeout = function(fn, delay, ...args) {
-            const fnString = fn.toString().toLowerCase();
-            const adKeywords = ['ad', 'ads', 'advert', 'commercial', 'preroll', 'postroll', 'midroll'];
-            
-            if (adKeywords.some(keyword => fnString.includes(keyword))) {
-                console.log("Блокируем рекламный setTimeout");
-                blockedTimers++;
-                return null; // Не создаем таймер
-            }
-            
-            return originalSetTimeout.call(this, fn, delay, ...args);
-        };
-        
-        window.setInterval = function(fn, delay, ...args) {
-            const fnString = fn.toString().toLowerCase();
-            const adKeywords = ['ad', 'ads', 'advert', 'commercial', 'preroll', 'postroll', 'midroll'];
-            
-            if (adKeywords.some(keyword => fnString.includes(keyword))) {
-                console.log("Блокируем рекламный setInterval");
-                blockedTimers++;
-                return null; // Не создаем таймер
-            }
-            
-            return originalSetInterval.call(this, fn, delay, ...args);
-        };
-        
-        console.log(`Заблокировано рекламных таймеров: ${blockedTimers}`);
-    }
+    // Перехватываем XMLHttpRequest для блокировки рекламных запросов
+    const originalXHR = window.XMLHttpRequest;
+    window.XMLHttpRequest = function() {
+        const xhr = new originalXHR();
+        const originalOpen = xhr.open;
+        const originalSend = xhr.send;
 
-    // Дополнительный наблюдатель за изменениями DOM
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (node.nodeName === 'VIDEO') {
-                    console.log("Обнаружено новое видео в DOM, блокируем...");
-                    blockVideoElement(node);
-                }
-                
-                // Ищем видео внутри добавленных элементов
-                if (node.querySelectorAll) {
-                    const videos = node.querySelectorAll('video');
-                    videos.forEach(video => {
-                        console.log("Обнаружено вложенное видео, блокируем...");
-                        blockVideoElement(video);
-                    });
-                }
-            });
+        xhr.open = function(method, url, ...args) {
+            this._url = url;
+            return originalOpen.call(this, method, url, ...args);
+        };
+
+        xhr.send = function(data) {
+            // Блокируем запросы к рекламным сетям
+            if (this._url && (
+                this._url.includes('ads.') || 
+                this._url.includes('ad.') ||
+                this._url.includes('betweendigital.com') ||
+                this._url.includes('adv.') ||
+                this._url.includes('advert.')
+            )) {
+                console.log("Блокируем рекламный запрос:", this._url);
+                // Эмулируем успешный ответ с пустыми данными
+                setTimeout(() => {
+                    if (this.onreadystatechange) {
+                        this.readyState = 4;
+                        this.status = 200;
+                        this.responseText = '';
+                        this.onreadystatechange();
+                    }
+                }, 10);
+                return;
+            }
+
+            return originalSend.call(this, data);
+        };
+
+        return xhr;
+    };
+
+    // Функция для немедленного завершения всех видео
+    function completeAllVideos() {
+        console.log("Принудительное завершение всех видео элементов");
+        document.querySelectorAll('video').forEach(video => {
+            try {
+                video.ended = true;
+                video.dispatchEvent(new Event('ended', { bubbles: true }));
+                if (video.onended) video.onended();
+            } catch (e) {}
         });
-    });
-
-    // Функция блокировки существующих видео элементов
-    function blockVideoElement(videoElement) {
-        const originalPlay = videoElement.play;
-        videoElement.play = function() {
-            console.log("Блокируем воспроизведение существующего видео");
-            videoElement.ended = true;
-            videoElement.currentTime = videoElement.duration || 100;
-            
-            // Запускаем события завершения
-            setTimeout(() => {
-                const events = ['ended', 'complete', 'load'];
-                events.forEach(eventName => {
-                    try {
-                        videoElement.dispatchEvent(new Event(eventName));
-                    } catch (e) {}
-                });
-            }, 100);
-            
-            return Promise.resolve();
-        };
     }
 
-    // Запускаем все системы блокировки
+    // Запускаем системы блокировки
     document.addEventListener("DOMContentLoaded", function() {
         console.log("DOM загружен, активируем системы блокировки...");
-        clearAdTimers();
         
-        // Блокируем уже существующие видео
-        document.querySelectorAll('video').forEach(blockVideoElement);
+        // Немедленно завершаем любые существующие видео
+        setTimeout(completeAllVideos, 100);
         
-        // Запускаем наблюдатель
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        // Дополнительная проверка через 1 секунду
+        setTimeout(completeAllVideos, 1000);
     });
 
-    // Дополнительная проверка через 2 секунды на случай поздней загрузки
-    setTimeout(() => {
-        console.log("Проверка поздней загрузки видео...");
-        document.querySelectorAll('video').forEach(blockVideoElement);
-    }, 2000);
+    // Также запускаем при полной загрузке страницы
+    window.addEventListener('load', function() {
+        console.log("Страница полностью загружена, завершаем рекламу...");
+        setTimeout(completeAllVideos, 200);
+    });
 
 })();
