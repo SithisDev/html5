@@ -83,7 +83,16 @@ RT.Player.prototype = {
 		var self = this;
 
 		this.messageHandler = function(e) {
-			if (!self.iframe || e.source !== self.iframe.contentWindow) return;
+			if (!self.iframe) return;
+
+if (e.source && e.source !== self.iframe.contentWindow) {
+    var origin = String(e.origin || '')
+        .replace(/^https?:\/\//i, '')
+        .split('/')[0]
+        .split(':')[0];
+
+    if (!/(^|\.)rutube\.ru$/i.test(origin)) return;
+}
 
 			var message = e.data;
 			if (typeof message === 'string') {
@@ -97,9 +106,10 @@ RT.Player.prototype = {
 
 			var data = message.data || {};
 			switch (message.type) {
-				case 'player:ready':
-					self.handleReady(message);
-					break;
+case 'player:ready':
+case 'player:init':
+    if (!self.ready) self.handleReady(message);
+    break;
 
 				case 'player:playOptionsLoaded':
 				case 'player:playOptionLoaded':
@@ -173,26 +183,44 @@ RT.Player.prototype = {
 		window.addEventListener('message', this.messageHandler, false);
 	},
 
-	handleReady: function(message) {
-		if (this.ready || this.destroyed) return;
-		this.ready = true;
+handleReady: function(message) {
+    if (this.ready || this.destroyed) return;
 
-		// Отправляем накопленные команды: раньше они терялись до player:ready.
-		var queued = this.commandQueue.slice();
-		this.commandQueue = [];
-		for (var i = 0; i < queued.length; i++) this.postCommand(queued[i]);
+    this.ready = true;
 
-		this.sendCommand({ type: 'player:getQualityList', data: {} });
-		this.triggerEvent('onReady', message || {});
+    var queued = this.commandQueue.slice();
+    this.commandQueue = [];
+    var hasQueuedPlay = false;
 
-		// playerVars.autoplay в этой обертке означает запуск через JS API.
-		// Параметр autoplay в URL у Rutube не является надежным способом старта.
-		var pv = this.options.playerVars || {};
-		var hasPlaybackCommand = queued.some(function(command) {
-			return command && (command.type === 'player:play' || command.type === 'player:pause' || command.type === 'player:stop');
-		});
-		if (pv.autoplay && !hasPlaybackCommand) this.playVideo();
-	},
+    for (var i = 0; i < queued.length; i++) {
+        if (queued[i] && queued[i].type === 'player:play') {
+            hasQueuedPlay = true;
+        }
+        this.postCommand(queued[i]);
+    }
+
+    this.postCommand({
+        type: 'player:getQualityList',
+        data: {}
+    });
+
+    this.triggerEvent('onReady', message || {});
+
+    var pv = this.options.playerVars || {};
+
+    if (pv.autoplay && !hasQueuedPlay) {
+        var self = this;
+
+        [150, 700, 1600].forEach(function(delay) {
+            setTimeout(function() {
+                if (!self.destroyed &&
+                    self.playerState !== RT.PlayerState.PLAYING) {
+                    self.playVideo();
+                }
+            }, delay);
+        });
+    }
+},
 
 	handleStateChange: function(data) {
 		var stateMap = {
@@ -291,9 +319,26 @@ RT.Player.prototype = {
 	getPlayerState: function() { return this.playerState; },
 	getPlaybackQuality: function() { return this.playbackQuality; },
 
-	playVideo: function() {
-		this.sendCommand({ type: 'player:play', data: {} });
-	},
+playVideo: function() {
+    var command = {
+        type: 'player:play',
+        data: {}
+    };
+
+    if (!this.ready && !this.destroyed) {
+        this.postCommand(command);
+
+        var alreadyQueued = this.commandQueue.some(function(item) {
+            return item && item.type === 'player:play';
+        });
+
+        if (!alreadyQueued) {
+            this.commandQueue.push(command);
+        }
+    } else {
+        this.sendCommand(command);
+    }
+},
 
 	pauseVideo: function() {
 		this.sendCommand({ type: 'player:pause', data: {} });
