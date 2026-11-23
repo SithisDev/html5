@@ -15,13 +15,26 @@
 
     var icon = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M4 4h16v3H4zm0 6h16v3H4zm0 6h16v3H4z"/></svg>';
 
+    var hostedIcons = {
+        'Prime Video': 'amazon.png',
+        'AMC': 'amc.webp',
+        'tvN KR': 'tvn.webp',
+        'Disney+': 'disney.webp'
+    };
+    SERVICES.forEach(function (service) {
+        if (hostedIcons[service.name]) {
+            var className = service.name === 'AMC' ? 'top-streaming-image top-streaming-image-amc' : 'top-streaming-image';
+            service.icon = '<img src="https://sithisdev.github.io/html5/' + hostedIcons[service.name] + '" class="' + className + '" alt="' + service.name + '">';
+        }
+    });
+
     SERVICES.forEach(function (service, index) {
-        if (service.icon) service.icon = service.icon.replace('<svg ', '<svg class="top-streaming-icon top-streaming-icon-' + index + '" ');
+        if (service.icon) service.icon = service.icon.replace(/class="([^"]*)"/, 'class="$1 top-streaming-icon top-streaming-icon-' + index + '"');
     });
 
     function addMenuItems() {
         var style = document.createElement('style');
-        style.textContent = '.menu .selector:hover .top-streaming-icon,.menu .selector.focus .top-streaming-icon,.menu .selector:focus .top-streaming-icon{filter:brightness(0)!important}.menu .selector:hover .top-streaming-icon *,.menu .selector.focus .top-streaming-icon *,.menu .selector:focus .top-streaming-icon *{transition:filter .15s}';
+        style.textContent = '.top-streaming-image{display:block;width:100%;height:100%;object-fit:contain}.top-streaming-image-amc{filter:brightness(0) invert(1)}.menu .selector:hover .top-streaming-icon,.menu .selector.focus .top-streaming-icon,.menu .selector:focus .top-streaming-icon{filter:brightness(0)!important}.menu .selector:hover .top-streaming-icon *,.menu .selector.focus .top-streaming-icon *,.menu .selector:focus .top-streaming-icon *{transition:filter .15s}';
         document.head.appendChild(style);
 
         SERVICES.forEach(function (service) {
