@@ -29,12 +29,12 @@
     });
 
     SERVICES.forEach(function (service, index) {
-        if (service.icon) service.icon = service.icon.replace(/class="([^"]*)"/, 'class="$1 top-streaming-icon top-streaming-icon-' + index + '"');
+        if (service.icon) service.icon = service.icon.replace(/<svg\b/, '<svg class="top-streaming-icon top-streaming-icon-' + index + '"').replace(/<img\b/, '<img class="top-streaming-icon top-streaming-icon-' + index + '"');
     });
 
     function addMenuItems() {
         var style = document.createElement('style');
-        style.textContent = '.top-streaming-image{display:block;width:100%;height:100%;object-fit:contain}.top-streaming-image-amc{filter:brightness(0) invert(1)}.menu .selector:hover .top-streaming-icon,.menu .selector.focus .top-streaming-icon,.menu .selector:focus .top-streaming-icon{filter:brightness(0)!important}.menu .selector:hover .top-streaming-icon *,.menu .selector.focus .top-streaming-icon *,.menu .selector:focus .top-streaming-icon *{transition:filter .15s}';
+        style.textContent = '.top-streaming-image{display:block;width:100%;height:100%;object-fit:contain}.top-streaming-image-amc{filter:brightness(0) invert(1)}.menu .selector:hover .top-streaming-icon,.menu .selector.focus .top-streaming-icon,.menu .selector:focus .top-streaming-icon,.menu .selector.hover .top-streaming-icon,.menu .selector.active .top-streaming-icon,.menu .selector.selected .top-streaming-icon{filter:brightness(0)!important}.menu .selector:hover .top-streaming-icon *,.menu .selector.focus .top-streaming-icon *,.menu .selector:focus .top-streaming-icon *,.menu .selector.hover .top-streaming-icon *,.menu .selector.active .top-streaming-icon *,.menu .selector.selected .top-streaming-icon *{filter:brightness(0)!important;transition:filter .15s}';
         document.head.appendChild(style);
 
         SERVICES.forEach(function (service) {
